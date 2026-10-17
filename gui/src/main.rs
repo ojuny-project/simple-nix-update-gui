@@ -1534,7 +1534,7 @@ fn spawn_progress_listener(
             };
             tracing::info!("listening for check progress signals");
             while let Some(message) = stream.next().await {
-                match message.body::<String>() {
+                match message.body().deserialize::<String>() {
                     Ok(line) => {
                         if !check_active.swap(true, Ordering::Relaxed) {
                             let _ = catchup_tx.send(());

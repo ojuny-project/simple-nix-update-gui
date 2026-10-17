@@ -9,7 +9,7 @@ use std::time::{Duration as StdDuration, Instant};
 use tokio::time::Duration;
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::EnvFilter;
-use zbus::{dbus_interface, ConnectionBuilder};
+use zbus::{connection::Builder, interface, object_server::SignalEmitter};
 
 /// A cold eval of a large flake fetches inputs and walks the whole module tree,
 /// so this is generous, but it is still a ceiling rather than no ceiling.
@@ -163,7 +163,7 @@ struct Daemon {
     progress: std::sync::Arc<std::sync::Mutex<Vec<String>>>,
 }
 
-#[dbus_interface(name = "org.simple_nix_update_gui.Daemon")]
+#[interface(name = "org.simple_nix_update_gui.Daemon")]
 impl Daemon {
     /// Starts a check on a background thread and returns the current state
     /// immediately. The caller watches `checking` instead of blocking for the
@@ -171,13 +171,13 @@ impl Daemon {
     /// check that is already running is left alone.
     async fn check_for_updates(
         &self,
-        #[zbus(signal_context)] ctxt: zbus::SignalContext<'_>,
+        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
     ) -> String {
         info!("Manual update check triggered");
         if self.try_begin_check() {
             let daemon = self.clone();
-            let ctxt = ctxt.to_owned();
-            std::thread::spawn(move || daemon.run_check(Some(ctxt), true));
+            let emitter = emitter.into_owned();
+            std::thread::spawn(move || daemon.run_check(Some(emitter), true));
         } else {
             info!("a check is already running, returning the current state");
         }
@@ -200,8 +200,8 @@ impl Daemon {
     }
 
     /// One line of the eval's stderr, pushed while the check runs.
-    #[dbus_interface(signal)]
-    async fn check_progress(ctxt: &zbus::SignalContext<'_>, line: &str) -> zbus::Result<()>;
+    #[zbus(signal)]
+    async fn check_progress(emitter: SignalEmitter<'_>, line: &str) -> zbus::Result<()>;
 }
 
 impl Daemon {
@@ -226,7 +226,7 @@ impl Daemon {
     /// Blocks until the eval finishes. Runs on a plain thread: emitting the
     /// progress signals needs a block_on, which would panic on the zbus
     /// executor and on the tokio runtime.
-    fn run_check(&self, ctxt: Option<zbus::SignalContext<'static>>, surface_errors: bool) {
+    fn run_check(&self, emitter: Option<SignalEmitter<'static>>, surface_errors: bool) {
         let progress = self.progress.clone();
         let outcome = check_updates(&self.settings, |line| {
             {
@@ -236,8 +236,8 @@ impl Daemon {
                     buffer.remove(0);
                 }
             }
-            if let Some(ctxt) = &ctxt {
-                if let Err(error) = zbus::block_on(Self::check_progress(ctxt, &line)) {
+            if let Some(emitter) = &emitter {
+                if let Err(error) = zbus::block_on(Self::check_progress(emitter.clone(), &line)) {
                     debug!(%error, "could not emit progress signal");
                 }
             }
@@ -261,11 +261,11 @@ impl Daemon {
     }
 }
 
-fn check_signal_context(conn: &zbus::Connection) -> Option<zbus::SignalContext<'static>> {
-    match zbus::SignalContext::new(conn, DAEMON_PATH) {
-        Ok(ctxt) => Some(ctxt.into_owned()),
+fn check_signal_emitter(conn: &zbus::Connection) -> Option<SignalEmitter<'static>> {
+    match SignalEmitter::new(conn, DAEMON_PATH) {
+        Ok(emitter) => Some(emitter.into_owned()),
         Err(error) => {
-            warn!(%error, "could not create progress signal context");
+            warn!(%error, "could not create progress signal emitter");
             None
         }
     }
@@ -514,7 +514,7 @@ async fn main() -> Result<()> {
 
     // Session bus, not system bus. The daemon runs as the logged in user in a
     // systemd user unit, and needs their HOME so git can find their credentials.
-    let conn = ConnectionBuilder::session()?
+    let conn = Builder::session()?
         .name(settings.bus_name.clone())?
         .serve_at(DAEMON_PATH, daemon.clone())?
         .build()
@@ -524,10 +524,10 @@ async fn main() -> Result<()> {
     // Checks run on plain threads: run_check emits progress signals, which
     // needs a block_on that would panic on both the zbus executor and here.
     let startup_daemon = daemon.clone();
-    let startup_ctxt = check_signal_context(&conn);
+    let startup_emitter = check_signal_emitter(&conn);
     std::thread::spawn(move || {
         if startup_daemon.try_begin_check() {
-            startup_daemon.run_check(startup_ctxt, false);
+            startup_daemon.run_check(startup_emitter, false);
         }
     });
 
@@ -540,9 +540,9 @@ async fn main() -> Result<()> {
         check_interval.tick().await;
         info!("Periodic update check");
         if daemon.try_begin_check() {
-            let ctxt = check_signal_context(&conn);
+            let emitter = check_signal_emitter(&conn);
             let daemon = daemon.clone();
-            std::thread::spawn(move || daemon.run_check(ctxt, false));
+            std::thread::spawn(move || daemon.run_check(emitter, false));
         } else {
             info!("a check is already running, skipping this tick");
         }
