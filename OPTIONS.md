@@ -31,6 +31,27 @@ true
 
 
 
+## services\.simple-nix-update-gui\.package
+
+
+
+Package that provides the simple-nix-update-gui executable\.
+
+
+
+*Type:*
+package
+
+
+
+*Default:*
+
+```nix
+<derivation simple-nix-update-gui-0.1.0>
+```
+
+
+
 ## services\.simple-nix-update-gui\.autoNotify
 
 Send a desktop notification when an update becomes available\. The GUI sends
@@ -122,6 +143,27 @@ string
 
 ```nix
 "$HOME/repos/nix-config"
+```
+
+
+
+## services\.simple-nix-update-gui\.daemonPackage
+
+
+
+Package that provides the simple-nix-update-gui-daemon executable\.
+
+
+
+*Type:*
+package
+
+
+
+*Default:*
+
+```nix
+<derivation simple-nix-update-gui-daemon-0.1.0>
 ```
 
 
