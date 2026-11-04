@@ -1,0 +1,25 @@
+name: docs
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  options:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Regenerate options reference
+        run: ./scripts/gen-options.sh
+
+      - name: Fail when OPTIONS.md is stale
+        run: git diff --exit-code -- OPTIONS.md
