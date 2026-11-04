@@ -6,7 +6,8 @@ self: {
 }:
 with lib; let
   cfg = config.services.simple-nix-update-gui;
-  inherit (self.packages.${pkgs.stdenv.hostPlatform.system}) gui daemon;
+  sourceGui = self.packages.${pkgs.stdenv.hostPlatform.system}.gui;
+  sourceDaemon = self.packages.${pkgs.stdenv.hostPlatform.system}.daemon;
 
   systemName =
     if cfg.systemName == null
@@ -85,6 +86,18 @@ in
   options.services.simple-nix-update-gui = {
     enable = mkEnableOption "Simple NixOS update GUI and state daemon";
 
+    package = mkOption {
+      type = types.package;
+      default = sourceGui;
+      description = "Package that provides the simple-nix-update-gui executable.";
+    };
+
+    daemonPackage = mkOption {
+      type = types.package;
+      default = sourceDaemon;
+      description = "Package that provides the simple-nix-update-gui-daemon executable.";
+    };
+
     flakeUri = mkOption {
       type = types.str;
       description = ''
@@ -160,11 +173,11 @@ in
 
   config = mkIf cfg.enable {
     environment.systemPackages = [
-      gui
+      cfg.package
       pkgs.nix-output-monitor
       (pkgs.makeDesktopItem {
         name = "simple-nix-update-gui";
-        exec = "${gui}/bin/simple-nix-update-gui ${cliFlags}";
+        exec = "${cfg.package}/bin/simple-nix-update-gui ${cliFlags}";
         desktopName = "Simple Nix Update GUI";
         icon = "system-software-update";
         comment = "Simple NixOS update GUI";
@@ -212,7 +225,7 @@ in
             "PATH=${daemonPath}"
             "RUST_BACKTRACE=1"
           ];
-        ExecStart = "${daemon}/bin/simple-nix-update-gui-daemon";
+        ExecStart = "${cfg.daemonPackage}/bin/simple-nix-update-gui-daemon";
       };
     };
 
@@ -239,7 +252,7 @@ in
           ++ [
             "PATH=${daemonPath}"
           ];
-        ExecStart = "${gui}/bin/simple-nix-update-gui ${unitFlags} --tray";
+        ExecStart = "${cfg.package}/bin/simple-nix-update-gui ${unitFlags} --tray";
       };
     };
 
