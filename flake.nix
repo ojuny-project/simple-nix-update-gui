@@ -6,41 +6,56 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = {
-    self,
-    nixpkgs,
-    flake-utils,
-    ...
-  }: let
-    binaryInfo =
-      if builtins.pathExists ./binary-url.json
-      then builtins.fromJSON (builtins.readFile ./binary-url.json)
-      else null;
+  outputs =
+    {
+      self,
+      nixpkgs,
+      flake-utils,
+      ...
+    }:
+    let
+      binaryInfo =
+        if builtins.pathExists ./binary-url.json then
+          builtins.fromJSON (builtins.readFile ./binary-url.json)
+        else
+          null;
 
-    mkBinary = {
-      system,
-      tag ? (if binaryInfo == null then throw "simple-nix-update-gui: binary-url.json is missing" else binaryInfo.latest),
-      package,
-    }: let
-      release =
-        if binaryInfo == null
-        then throw "simple-nix-update-gui: binary-url.json is missing"
-        else binaryInfo.releases.${tag} or (throw "simple-nix-update-gui: release '${tag}' is not recorded in binary-url.json");
-      packageInfo = release.packages.${package} or (throw "simple-nix-update-gui: package '${package}' is not recorded in release '${tag}'");
-      pkgs = import nixpkgs {inherit system;};
-    in
-      pkgs.callPackage ./nix/binary.nix {
-        name = package;
-        inherit (packageInfo) file;
-        info = {
-          inherit (binaryInfo) repo system;
-          inherit (release) tag version;
-          inherit (packageInfo) url hash;
+      mkBinary =
+        {
+          system,
+          tag ? (
+            if binaryInfo == null then
+              throw "simple-nix-update-gui: binary-url.json is missing"
+            else
+              binaryInfo.latest
+          ),
+          package,
+        }:
+        let
+          release =
+            if binaryInfo == null then
+              throw "simple-nix-update-gui: binary-url.json is missing"
+            else
+              binaryInfo.releases.${tag}
+                or (throw "simple-nix-update-gui: release '${tag}' is not recorded in binary-url.json");
+          packageInfo =
+            release.packages.${package}
+              or (throw "simple-nix-update-gui: package '${package}' is not recorded in release '${tag}'");
+          pkgs = import nixpkgs { inherit system; };
+        in
+        pkgs.callPackage ./nix/binary.nix {
+          name = package;
+          inherit (packageInfo) file;
+          info = {
+            inherit (binaryInfo) repo system;
+            inherit (release) tag version;
+            inherit (packageInfo) url hash;
+          };
         };
-      };
-  in
+    in
     flake-utils.lib.eachDefaultSystem (
-      system: let
+      system:
+      let
         pkgs = import nixpkgs {
           inherit system;
         };
@@ -67,8 +82,11 @@
           version = "0.1.0";
           src = lib.cleanSource ./daemon;
           cargoLock.lockFile = ./daemon/Cargo.lock;
-          nativeBuildInputs = with pkgs; [pkg-config];
-          buildInputs = with pkgs; [dbus glib];
+          nativeBuildInputs = with pkgs; [ pkg-config ];
+          buildInputs = with pkgs; [
+            dbus
+            glib
+          ];
         };
 
         gui = pkgs.rustPlatform.buildRustPackage {
@@ -76,7 +94,7 @@
           version = "0.1.0";
           src = lib.cleanSource ./gui;
           cargoLock.lockFile = ./gui/Cargo.lock;
-          nativeBuildInputs = commonNativeBuildInputs ++ [pkgs.makeWrapper];
+          nativeBuildInputs = commonNativeBuildInputs ++ [ pkgs.makeWrapper ];
           buildInputs = commonBuildInputs;
           # The GUI shells out to these (rebuild terminal, store stats), so
           # they travel with the binary instead of depending on the session
@@ -87,18 +105,45 @@
           # carries no setuid bit and cannot elevate.
           postInstall = ''
             wrapProgram $out/bin/simple-nix-update-gui \
-              --prefix PATH : "${lib.makeBinPath (with pkgs; [nix git nix-output-monitor openssh coreutils util-linux bash nixos-rebuild])}:/run/wrappers/bin:/run/current-system/sw/bin"
+              --prefix PATH : "${
+                lib.makeBinPath (
+                  with pkgs;
+                  [
+                    nix
+                    git
+                    nix-output-monitor
+                    openssh
+                    coreutils
+                    util-linux
+                    bash
+                    nixos-rebuild
+                  ]
+                )
+              }:/run/wrappers/bin:/run/current-system/sw/bin"
           '';
         };
 
-      in {
+      in
+      {
         packages = {
           inherit daemon gui;
           default = gui;
-        } // (if binaryInfo != null && binaryInfo.system == system then {
-          simple-nix-update-gui-binary = mkBinary {inherit system; package = "simple-nix-update-gui";};
-          simple-nix-update-gui-daemon-binary = mkBinary {inherit system; package = "simple-nix-update-gui-daemon";};
-        } else {});
+        }
+        // (
+          if binaryInfo != null && binaryInfo.system == system then
+            {
+              simple-nix-update-gui-binary = mkBinary {
+                inherit system;
+                package = "simple-nix-update-gui";
+              };
+              simple-nix-update-gui-daemon-binary = mkBinary {
+                inherit system;
+                package = "simple-nix-update-gui-daemon";
+              };
+            }
+          else
+            { }
+        );
 
         apps = {
           simple-nix-update-gui = {
