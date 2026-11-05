@@ -4,7 +4,7 @@ Welcome to the Simple Nix Update GUI documentation.
 
 ## Contents
 
-- [Overview](README.md) - Project description, features, and architecture
+- [Overview](../README.md) - Project description, features, and architecture
 - [Installation](installation.md) - How to install the project (NixOS module, manual, dev shell)
 - [Configuration](configuration.md) - Configuration options for daemon, GUI, and NixOS module
 - [Examples](examples/nixos-configuration.md) - Complete working example configurations
