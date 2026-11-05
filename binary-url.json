@@ -1,0 +1,23 @@
+{
+  "repo": "ojuny-project/simple-nix-update-gui",
+  "system": "x86_64-linux",
+  "latest": "v0.1.0-hotfix-1",
+  "releases": {
+    "v0.1.0-hotfix-1": {
+      "tag": "v0.1.0-hotfix-1",
+      "version": "0.1.0-hotfix-1",
+      "packages": {
+        "simple-nix-update-gui": {
+          "file": "simple-nix-update-gui.bin",
+          "url": "https://github.com/ojuny-project/simple-nix-update-gui/releases/download/v0.1.0-hotfix-1/simple-nix-update-gui.bin",
+          "hash": "sha256-xJmuuADiVfqfi+f/gMlrel4mB/heeZ2fgfmQv87u8Ks="
+        },
+        "simple-nix-update-gui-daemon": {
+          "file": "simple-nix-update-gui-daemon.bin",
+          "url": "https://github.com/ojuny-project/simple-nix-update-gui/releases/download/v0.1.0-hotfix-1/simple-nix-update-gui-daemon.bin",
+          "hash": "sha256-6NriE4jB1IKMdSOyPEJk7gE2rzDzj3K9pOqF+tmUjSU="
+        }
+      }
+    }
+  }
+}

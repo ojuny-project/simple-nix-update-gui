@@ -11,7 +11,34 @@
     nixpkgs,
     flake-utils,
     ...
-  }:
+  }: let
+    binaryInfo =
+      if builtins.pathExists ./binary-url.json
+      then builtins.fromJSON (builtins.readFile ./binary-url.json)
+      else null;
+
+    mkBinary = {
+      system,
+      tag ? (if binaryInfo == null then throw "simple-nix-update-gui: binary-url.json is missing" else binaryInfo.latest),
+      package,
+    }: let
+      release =
+        if binaryInfo == null
+        then throw "simple-nix-update-gui: binary-url.json is missing"
+        else binaryInfo.releases.${tag} or (throw "simple-nix-update-gui: release '${tag}' is not recorded in binary-url.json");
+      packageInfo = release.packages.${package} or (throw "simple-nix-update-gui: package '${package}' is not recorded in release '${tag}'");
+      pkgs = import nixpkgs {inherit system;};
+    in
+      pkgs.callPackage ./nix/binary.nix {
+        name = package;
+        inherit (packageInfo) file;
+        info = {
+          inherit (binaryInfo) repo system;
+          inherit (release) tag version;
+          inherit (packageInfo) url hash;
+        };
+      };
+  in
     flake-utils.lib.eachDefaultSystem (
       system: let
         pkgs = import nixpkgs {
@@ -68,7 +95,10 @@
         packages = {
           inherit daemon gui;
           default = gui;
-        };
+        } // (if binaryInfo != null && binaryInfo.system == system then {
+          simple-nix-update-gui-binary = mkBinary {inherit system; package = "simple-nix-update-gui";};
+          simple-nix-update-gui-daemon-binary = mkBinary {inherit system; package = "simple-nix-update-gui-daemon";};
+        } else {});
 
         apps = {
           simple-nix-update-gui = {
@@ -101,6 +131,7 @@
       }
     )
     // {
+      lib.mkBinary = mkBinary;
       nixosModules.default = import ./modules/nixos.nix self;
       nixosModules.simple-nix-update-gui = import ./modules/nixos.nix self;
     };
