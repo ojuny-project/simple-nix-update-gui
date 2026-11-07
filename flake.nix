@@ -54,7 +54,7 @@
           };
         };
     in
-    flake-utils.lib.eachDefaultSystem (
+    flake-utils.lib.eachSystem [ "x86_64-linux" "aarch64-linux" ] (
       system:
       let
         pkgs = import nixpkgs {
@@ -172,6 +172,11 @@
 
         checks = {
           inherit daemon gui;
+          default = pkgs.runCommand "check-default" { } ''
+            echo ${self.checks.${system}.daemon} >/dev/null
+            echo ${self.checks.${system}.gui} >/dev/null
+            touch $out
+          '';
         };
 
         devShells.default = pkgs.mkShell {
