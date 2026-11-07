@@ -156,6 +156,18 @@
             program = "${daemon}/bin/simple-nix-update-gui-daemon";
           };
           default = self.apps.${system}.simple-nix-update-gui;
+          ci = {
+            type = "app";
+            program = "${
+              pkgs.writeShellApplication {
+                name = "ci";
+                runtimeInputs = [ pkgs.nix ];
+                text = ''
+                  exec nix flake check "$@"
+                '';
+              }
+            }/bin/ci";
+          };
         };
 
         checks = {
@@ -177,6 +189,7 @@
       }
     )
     // {
+      hydraJobs = self.checks;
       lib.mkBinary = mkBinary;
       nixosModules.default = import ./modules/nixos.nix self;
       nixosModules.simple-nix-update-gui = import ./modules/nixos.nix self;
