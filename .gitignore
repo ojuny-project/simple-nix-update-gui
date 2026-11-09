@@ -9,3 +9,4 @@ result-*
 **/.nixos-test-history
 daemon/target
 gui/target
+changes.log
