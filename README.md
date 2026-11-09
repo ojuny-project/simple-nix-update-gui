@@ -80,3 +80,4 @@ Add `inputs.simple-nix-update-gui.packages.${pkgs.system}.simple-nix-update-gui`
 and `inputs.simple-nix-update-gui.packages.${pkgs.system}.simple-nix-update-gui-daemon`
 to `environment.systemPackages`.
 
+
